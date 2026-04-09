@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>PDF Reader</title>
+
+<style>
+  body {
+    margin: 0;
+    font-family: sans-serif;
+    background: #0e0e0e;
+    color: #fff;
+  }
+
+  .library {
+    height: 100vh;
+    overflow-y: scroll;
+  }
+
+  .title {
+    padding: 20px;
+    border-bottom: 1px solid #222;
+    cursor: pointer;
+  }
+
+  .reader {
+    position: fixed;
+    inset: 0;
+    background: #000;
+    display: none;
+    flex-direction: column;
+  }
+
+  .reader.active {
+    display: flex;
+  }
+
+  .topbar {
+    padding: 10px;
+    background: #111;
+    border-bottom: 1px solid #222;
+    z-index: 2;
+  }
+
+  .pages {
+    flex: 1;
+    display: flex;
+    overflow-x: scroll;
+    overflow-y: hidden;
+    scroll-snap-type: x mandatory;
+  }
+
+  .page {
+    min-width: 100vw;
+    height: 100%;
+    scroll-snap-align: start;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+
+  canvas {
+    max-width: 100%;
+    max-height: 100%;
+  }
+
+  .click-zone {
+    position: absolute;
+    top: 0;
+    width: 50%;
+    height: 100%;
+    z-index: 5;
+  }
+
+  .left {
+    left: 0;
+  }
+
+  .right {
+    right: 0;
+  }
+
+  @media (max-width: 768px) {
+    .click-zone {
+      display: none;
+    }
+  }
+</style>
+</head>
+
+<body>
+
+<div class="library">
+  <div class="title" data-pdf="https://mozilla.github.io/pdf.js/web/compressed.tracemonkey-pldi-09.pdf">
+    Tracemonkey Paper
+  </div>
+
+  <div class="title" data-pdf="https://arxiv.org/pdf/1706.03762.pdf">
+    Attention Is All You Need
+  </div>
+</div>
+
+<div class="reader" id="reader">
+  <div class="topbar">
+    <button onclick="closeReader()">Close</button>
+  </div>
+
+  <div class="pages" id="pages"></div>
+
+  <div class="click-zone left" onclick="prevPage()"></div>
+  <div class="click-zone right" onclick="nextPage()"></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+
+<script>
+const reader = document.getElementById("reader");
+const pagesContainer = document.getElementById("pages");
+
+let pdfDoc = null;
+let currentPage = 0;
+
+document.querySelectorAll(".title").forEach(el => {
+  el.addEventListener("click", () => {
+    loadPDF(el.dataset.pdf);
+  });
+});
+
+async function loadPDF(url) {
+  reader.classList.add("active");
+  pagesContainer.innerHTML = "";
+
+  pdfDoc = await pdfjsLib.getDocument(url).promise;
+
+  for (let i = 1; i <= pdfDoc.numPages; i++) {
+    const page = await pdfDoc.getPage(i);
+    const viewport = page.getViewport({ scale: 1.5 });
+
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+
+    await page.render({
+      canvasContext: ctx,
+      viewport: viewport
+    }).promise;
+
+    const wrapper = document.createElement("div");
+    wrapper.className = "page";
+    wrapper.appendChild(canvas);
+
+    pagesContainer.appendChild(wrapper);
+  }
+
+  currentPage = 0;
+  pagesContainer.scrollTo({ left: 0 });
+}
+
+function closeReader() {
+  reader.classList.remove("active");
+  pagesContainer.innerHTML = "";
+}
+
+function nextPage() {
+  currentPage++;
+  scrollToPage();
+}
+
+function prevPage() {
+  currentPage--;
+  scrollToPage();
+}
+
+function scrollToPage() {
+  const width = window.innerWidth;
+  pagesContainer.scrollTo({
+    left: currentPage * width,
+    behavior: "smooth"
+  });
+}
+</script>
+
+</body>
+</html>
